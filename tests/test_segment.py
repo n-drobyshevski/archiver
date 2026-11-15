@@ -62,7 +62,7 @@ def test_word_cap():
 def test_time_cap():
     words = make(["w"] * 20, step=2.0)  # no punctuation, 40 s total
     segs = build_segments(words)
-    assert segs[0].end - segs[0].start <= 31 and len(segs) == 2
+    assert segs[0].end - segs[0].start <= 30 and len(segs) == 2
 
 
 def test_ids_and_no_words_lost_russian():

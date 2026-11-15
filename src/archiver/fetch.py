@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import shutil
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any
@@ -33,8 +34,20 @@ def video_id_from_url(url: str) -> str | None:
     return None
 
 
+# In yt-dlp's own priority order. It enables only Deno unless told otherwise.
+_JS_RUNTIMES = ("deno", "node", "quickjs", "bun")
+
+
+def available_js_runtimes() -> list[str]:
+    """JavaScript runtimes on PATH that yt-dlp can use for YouTube."""
+    return [name for name in _JS_RUNTIMES if shutil.which(name)]
+
+
 def _base_opts(settings: Settings) -> dict[str, Any]:
     opts: dict[str, Any] = {"quiet": True, "no_warnings": True, "noplaylist": True}
+    runtimes = available_js_runtimes()
+    if runtimes:
+        opts["js_runtimes"] = {name: {} for name in runtimes}
     if settings.cookies_from_browser:
         opts["cookiesfrombrowser"] = (settings.cookies_from_browser,)
     return opts

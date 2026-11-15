@@ -24,7 +24,7 @@ def _starts_new_segment(current: list[Word], word: Word) -> bool:
     if word.start - last.end >= PAUSE_SECONDS:
         return True
     duration = last.end - current[0].start
-    if len(current) >= MAX_WORDS or duration >= MAX_SECONDS:
+    if len(current) >= MAX_WORDS or word.end - current[0].start > MAX_SECONDS:
         return True
     long_enough = duration >= MIN_SENTENCE_SECONDS or len(current) >= MIN_SENTENCE_WORDS
     return long_enough and _ends_sentence(last.text)

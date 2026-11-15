@@ -62,6 +62,10 @@ def _link(meta: VideoMeta, seconds: float, with_hours: bool) -> str:
     return f"[{_timestamp(seconds, with_hours)}](https://youtu.be/{meta.video_id}?t={int(seconds)})"
 
 
+def _watch_url(meta: VideoMeta) -> str:
+    return f"https://www.youtube.com/watch?v={meta.video_id}"
+
+
 def _one_line(text: str) -> str:
     return " ".join(text.split())
 
@@ -91,9 +95,15 @@ def _quote(text: str) -> str:
 # --- frontmatter -------------------------------------------------------------------------------
 
 
+class _IndentedDumper(yaml.SafeDumper):
+    """safe_dump, but list items are indented under their key (`tags:\n  - video`)."""
+
+    def increase_indent(self, flow: bool = False, indentless: bool = False) -> None:
+        return super().increase_indent(flow, False)
+
+
 def _frontmatter(meta: VideoMeta, outline: Outline, language: str, created: date) -> str:
-    data: dict[str, object] = {"title": _one_line(meta.title), "url": meta.url or ""}
-    data["url"] = f"https://www.youtube.com/watch?v={meta.video_id}"
+    data: dict[str, object] = {"title": _one_line(meta.title), "url": _watch_url(meta)}
     data["video_id"] = meta.video_id
     if meta.channel:
         data["channel"] = meta.channel
@@ -103,8 +113,13 @@ def _frontmatter(meta: VideoMeta, outline: Outline, language: str, created: date
     data["language"] = language
     data["tags"] = _unique(["video", "youtube", *outline.tags])
     data["created"] = created
-    body = yaml.safe_dump(
-        data, allow_unicode=True, sort_keys=False, default_flow_style=False, width=1_000_000
+    body = yaml.dump(
+        data,
+        Dumper=_IndentedDumper,
+        allow_unicode=True,
+        sort_keys=False,
+        default_flow_style=False,
+        width=1_000_000,
     )
     return f"---\n{body}---"
 
@@ -205,7 +220,7 @@ def render_note(
 
     blocks: list[str] = [
         _frontmatter(meta, outline, language, created)
-        + f"\n![]({'https://www.youtube.com/watch?v=' + meta.video_id})"
+        + f"\n![]({_watch_url(meta)})"
     ]
     if warnings:
         lines = [line for w in warnings for line in w.splitlines() if line.strip()]

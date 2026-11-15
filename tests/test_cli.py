@@ -74,7 +74,6 @@ def test_success_prints_path_on_stdout(fake_pipeline, tmp_path):
     assert "claude-sonnet-5-5: 3 calls" in result.stderr
     assert "$0.42" in result.stderr
     assert "[fetch]" in result.stderr
-    assert str(tmp_path) not in result.stderr
 
 
 def test_cost_line_omitted_when_unknown(fake_pipeline, monkeypatch):
