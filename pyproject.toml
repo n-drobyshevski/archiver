@@ -1,0 +1,35 @@
+[project]
+name = "archiver"
+version = "0.1.0"
+description = "YouTube video -> cleaned, topic-split, summarized Obsidian note"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "anthropic>=0.80",
+    "elevenlabs>=2.0",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.6",
+    "pyyaml>=6.0",
+    "typer>=0.15",
+    "yt-dlp[default]>=2026.10.26",
+]
+
+[project.scripts]
+archiver = "archiver.cli:app"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/archiver"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
