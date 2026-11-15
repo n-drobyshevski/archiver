@@ -157,3 +157,13 @@ def test_repeated_clean_messages_hidden_when_piped(fake_pipeline):
     assert "chunk 1/2" not in result.stderr
     verbose = invoke("https://youtu.be/abc", "-v")
     assert "chunk 1/2" in verbose.stderr
+
+
+def test_python_dash_m_archiver_starts_the_cli():
+    import subprocess
+
+    result = subprocess.run(
+        [sys.executable, "-m", "archiver", "--help"], capture_output=True, text=True, timeout=60
+    )
+    assert result.returncode == 0
+    assert "Usage: archiver" in result.stdout and "--vault" in result.stdout

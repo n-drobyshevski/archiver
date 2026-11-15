@@ -51,7 +51,11 @@ A compiler starts by reading the source text and turning it into a tree...
 | Deno | `brew install deno` | `curl -fsSL https://deno.land/install.sh \| sh` |
 | ffmpeg | `brew install ffmpeg` | `sudo apt install ffmpeg` |
 
-On Windows: `winget install astral-sh.uv DenoLand.Deno Gyan.FFmpeg` (or `scoop install uv deno ffmpeg`), and set the keys with `setx`.
+On Windows (PowerShell), then open a new terminal so the programs are on your PATH:
+
+```powershell
+winget install astral-sh.uv DenoLand.Deno Gyan.FFmpeg
+```
 
 ## Install
 
@@ -72,6 +76,15 @@ The two secrets are environment variables only:
 export ANTHROPIC_API_KEY=...
 export ELEVENLABS_API_KEY=...
 ```
+
+In PowerShell, `export` does not exist. For the current window:
+
+```powershell
+$env:ANTHROPIC_API_KEY = "..."
+$env:ELEVENLABS_API_KEY = "..."
+```
+
+To keep them, run `setx ANTHROPIC_API_KEY "..."` and `setx ELEVENLABS_API_KEY "..."` once and open a new window.
 
 Everything else goes in `~/.config/archiver/config.toml` (on Windows, `%USERPROFILE%\.config\archiver\config.toml`; `$XDG_CONFIG_HOME` is honoured). Only `vault` is required. Values shown are the defaults:
 
@@ -112,6 +125,8 @@ archiver URL --force                                        # ignore the cache a
 archiver URL --overwrite                                    # replace a note you have edited
 ```
 
+`uv run python -m archiver ...` is the same command as `uv run archiver ...`; use it where the `archiver` launcher is blocked (see Troubleshooting).
+
 The note's path is printed on stdout, so `archiver URL | pbcopy` or `open "$(archiver URL)"` works. Progress, warnings and token use go to stderr; add `-v` for every progress message and full tracebacks. The exit code is 0 when everything worked, 1 if any video failed (the others still run), and 2 when setup is wrong (missing key, binary or vault).
 
 ## How it works
@@ -134,6 +149,7 @@ About $0.20 per hour of audio for speech-to-text, plus roughly $0.30 to $0.60 pe
 
 ## Troubleshooting
 
+- **"An Application Control policy has blocked this file" (os error 4551), on Windows.** Smart App Control refuses the `archiver.exe` launcher because `uv` generates it on your machine and it is not signed. Start the tool through Python instead: `uv run python -m archiver <url>`.
 - **"Sign in to confirm you're not a bot".** Set `cookies_from_browser = "firefox"` (or `chrome`, `safari`) in the config file, with that browser signed in to YouTube. Running from a home network instead of a server or VPN also helps.
 - **Other YouTube download errors.** YouTube changes often. Update yt-dlp first: `uv lock --upgrade-package yt-dlp && uv sync`.
 - **A note is refused as edited.** The file in the vault changed after the tool wrote it. Pass `--overwrite` to replace it, or move your edits elsewhere.
