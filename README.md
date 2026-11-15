@@ -13,7 +13,10 @@ channel: Some Channel
 published: 2026-10-01
 duration_min: 42
 language: en
-tags: [video, youtube, compilers]
+tags:
+  - video
+  - youtube
+  - compilers
 created: 2026-11-15
 ---
 ![](https://www.youtube.com/watch?v=ID)
@@ -116,7 +119,7 @@ The note's path is printed on stdout, so `archiver URL | pbcopy` or `open "$(arc
 | Stage | What it does | Cached as |
 |---|---|---|
 | preflight | Checks the vault folder, both API keys, a JavaScript runtime and `ffmpeg` before any paid call. | none |
-| fetch | yt-dlp reads title, channel, date, duration, description and chapters, and downloads the audio. Live streams and videos over `max_duration_min` are refused. | `meta.json`, audio file |
+| fetch | yt-dlp reads title, channel, date, duration, description and chapters, and downloads the audio. Live streams and videos over `max_duration_min` are refused. | audio file (metadata is re-read each run) |
 | transcribe | Sends the audio to Scribe v3, with speaker labels. | `stt_raw.json` |
 | segment | Splits the words into 5 to 15 second segments in plain code. Free. | none |
 | clean | Sonnet cleans the text in chunks of about 1,350 words, using a shared glossary of names and terms. A check compares each result with the source; a chunk that lost or invented too much is retried smaller, then kept raw. | per chunk, `clean/` |
@@ -127,7 +130,7 @@ The cache lives in `~/.cache/archiver/<video_id>/`. Each entry records what prod
 
 ## Cost
 
-About $0.20 per hour of audio for speech-to-text, plus roughly $0.30 to $0.60 per hour of video for Claude (Russian uses more tokens than English). After each run the tool prints the actual token use per model and an approximate cost.
+About $0.20 per hour of audio for speech-to-text, plus roughly $0.30 to $0.60 per hour of video for Claude (Russian uses more tokens than English). After each run the tool prints the actual token use per model and the approximate Claude cost (speech-to-text is billed separately by ElevenLabs).
 
 ## Troubleshooting
 

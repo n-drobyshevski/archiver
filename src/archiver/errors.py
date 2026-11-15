@@ -21,6 +21,10 @@ class LlmRefused(ArchiverError):
     """The model declined the request, including after any fallback."""
 
 
+class LlmFailed(ArchiverError):
+    """The Claude API call failed: bad credentials, an API error, or no connection."""
+
+
 class LlmTruncated(ArchiverError):
     """The model hit max_tokens before finishing."""
 

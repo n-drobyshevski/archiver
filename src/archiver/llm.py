@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import logging
+from functools import cache
+from importlib import resources
 from typing import Any, TypeVar
 
 import anthropic
@@ -10,7 +12,7 @@ from anthropic import AsyncAnthropic
 from pydantic import BaseModel, ValidationError
 
 from archiver.config import Settings
-from archiver.errors import LlmRefused, LlmTruncated
+from archiver.errors import LlmFailed, LlmRefused, LlmTruncated
 from archiver.models import Usage
 
 log = logging.getLogger(__name__)
@@ -28,6 +30,12 @@ PRICES: dict[str, tuple[float, float]] = {
 CACHE_READ_FACTOR = 0.1
 
 
+@cache
+def load_prompt(name: str) -> str:
+    """Text of `prompts/<name>.md`, shipped inside the package."""
+    return resources.files("archiver").joinpath("prompts", f"{name}.md").read_text("utf-8")
+
+
 def _price_for(model: str) -> tuple[float, float] | None:
     if model in PRICES:
         return PRICES[model]
@@ -39,7 +47,7 @@ def _price_for(model: str) -> tuple[float, float] | None:
 
 
 def _is_fallback_rejection(exc: anthropic.BadRequestError) -> bool:
-    text = str(exc).lower()
+    text = f"{exc} {getattr(exc, 'api_message', '') or ''}".lower()
     return "fallback" in text or "beta" in text
 
 
@@ -78,6 +86,14 @@ class LLM:
         }
         try:
             response = await self._send(kwargs)
+        except (anthropic.AuthenticationError, anthropic.PermissionDeniedError) as exc:
+            raise LlmFailed(
+                f"Anthropic rejected the credentials ({exc.status_code}). Check ANTHROPIC_API_KEY."
+            ) from exc
+        except anthropic.APIStatusError as exc:
+            raise LlmFailed(f"Anthropic API error {exc.status_code} from {model}: {exc.message}") from exc
+        except anthropic.APIConnectionError as exc:
+            raise LlmFailed("Could not reach the Anthropic API. Check the network and retry.") from exc
         except ValidationError as exc:
             # The SDK validates the JSON before we can look at stop_reason, so a reply cut off
             # by max_tokens (or a refusal that stopped mid-output) surfaces here.

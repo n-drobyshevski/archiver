@@ -13,7 +13,7 @@ from typing import Callable
 from archiver import clean, fetch, outline, render, segment, vault
 from archiver.cache import Cache, fingerprint
 from archiver.config import Settings
-from archiver.errors import FetchBlocked, LlmRefused, PreflightError, SttFailed
+from archiver.errors import FetchBlocked, LlmRefused, LlmTruncated, PreflightError, SttFailed
 from archiver.llm import LLM
 from archiver.models import CleanResult, Outline, RawTranscript, Usage, VideoMeta
 from archiver.stt.base import Transcriber, VideoSource
@@ -161,7 +161,7 @@ async def run(
                 cleaned.paragraphs, meta, language, deps.llm, settings
             )
             cache.save("outline", outline_fp, result)
-        except LlmRefused as exc:
+        except (LlmRefused, LlmTruncated) as exc:
             warnings.append(f"The summary could not be written ({exc}).")
             result = outline.fallback_outline(cleaned.paragraphs, meta)
     else:

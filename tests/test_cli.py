@@ -50,6 +50,11 @@ def fake_pipeline(monkeypatch, tmp_path):
     module.run = run
     module.RunResult = FakeResult
     monkeypatch.setitem(sys.modules, "archiver.pipeline", module)
+    # `from archiver import pipeline` reads the package attribute once the real module has
+    # been imported by another test, so replace that too.
+    import archiver
+
+    monkeypatch.setattr(archiver, "pipeline", module, raising=False)
     return module
 
 
