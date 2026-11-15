@@ -61,6 +61,7 @@ def fake_pipeline(monkeypatch, tmp_path):
 @pytest.fixture(autouse=True)
 def isolated_env(monkeypatch, tmp_path):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
+    monkeypatch.chdir(tmp_path)  # so a developer's own .env is never loaded by a test
     monkeypatch.delenv("ARCHIVER_VAULT", raising=False)
     monkeypatch.delenv("ARCHIVER_FOLDER", raising=False)
 

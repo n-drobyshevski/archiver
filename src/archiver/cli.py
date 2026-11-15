@@ -90,8 +90,9 @@ def main(
     ] = False,
 ) -> None:
     from archiver import pipeline  # imported here so --help works without the heavy deps
-    from archiver.config import Settings
+    from archiver.config import Settings, load_env_files
 
+    load_env_files()  # before Settings and the SDKs read the environment
     overrides: dict[str, Any] = {}
     if vault is not None:
         overrides["vault"] = vault

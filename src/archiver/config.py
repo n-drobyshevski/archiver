@@ -25,6 +25,22 @@ def config_path() -> Path:
     return base / "archiver" / "config.toml"
 
 
+def load_env_files() -> list[Path]:
+    """Read `.env` from the current folder, then from the config folder, into the environment.
+
+    Variables that are already set win, and the current folder wins over the config folder.
+    This is how the API keys can be kept in a file instead of being typed into every terminal.
+    """
+    from dotenv import load_dotenv
+
+    loaded = []
+    for path in (Path.cwd() / ".env", config_path().parent / ".env"):
+        if path.is_file():
+            load_dotenv(path, override=False)
+            loaded.append(path)
+    return loaded
+
+
 def default_cache_dir() -> Path:
     base = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache"))
     return base / "archiver"

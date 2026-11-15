@@ -70,7 +70,14 @@ For a global `archiver` command, run `uv tool install .` instead.
 
 ## Configuration
 
-The two secrets are environment variables only:
+The two secrets are read from the environment. The easiest way to supply them is a `.env` file, which archiver loads at start: copy `.env.example` to `.env` in the folder you run archiver from (it is git-ignored), or to `~/.config/archiver/.env` so it works from anywhere, and fill in:
+
+```
+ANTHROPIC_API_KEY=...
+ELEVENLABS_API_KEY=...
+```
+
+A variable already set in the terminal wins over the file. Or set them in the terminal:
 
 ```sh
 export ANTHROPIC_API_KEY=...

@@ -70,3 +70,47 @@ def test_notes_dir_joins_vault_and_folder(tmp_path):
 def test_notes_dir_expands_home(monkeypatch, tmp_path):
     monkeypatch.setenv("HOME", str(tmp_path))
     assert Settings(vault=Path("~/vault")).notes_dir == tmp_path / "vault" / "Videos"
+
+
+def test_env_files_fill_in_missing_variables(tmp_path, monkeypatch):
+    import os
+
+    from archiver.config import load_env_files
+
+    names = ("ANTHROPIC_API_KEY", "ELEVENLABS_API_KEY", "ARCHIVER_FOLDER", "ARCHIVER_VAULT")
+    saved = {name: os.environ.get(name) for name in names}
+    try:
+        for name in names:
+            os.environ.pop(name, None)
+        os.environ["ELEVENLABS_API_KEY"] = "from-shell"
+        project = tmp_path / "project"
+        project.mkdir()
+        (project / ".env").write_text(
+            'ANTHROPIC_API_KEY="from-project"\nELEVENLABS_API_KEY=from-project\n', encoding="utf-8"
+        )
+        config_dir = tmp_path / "xdg" / "archiver"
+        config_dir.mkdir(parents=True)
+        (config_dir / ".env").write_text(
+            "ANTHROPIC_API_KEY=from-config\nARCHIVER_FOLDER=Talks\n", encoding="utf-8"
+        )
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
+        monkeypatch.chdir(project)
+
+        assert load_env_files() == [project / ".env", config_dir / ".env"]
+        assert os.environ["ELEVENLABS_API_KEY"] == "from-shell"  # already set: kept
+        assert os.environ["ANTHROPIC_API_KEY"] == "from-project"  # current folder first
+        assert Settings().folder == "Talks"  # settings can live there too
+    finally:
+        for name, value in saved.items():
+            if value is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = value
+
+
+def test_no_env_files_is_fine(tmp_path, monkeypatch):
+    from archiver.config import load_env_files
+
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
+    monkeypatch.chdir(tmp_path)
+    assert load_env_files() == []
