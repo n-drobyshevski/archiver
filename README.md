@@ -37,7 +37,7 @@ A compiler starts by reading the source text and turning it into a tree...
 ## Requirements
 
 - Python 3.11+ and [uv](https://docs.astral.sh/uv/)
-- [Deno](https://deno.com) (yt-dlp needs a JavaScript runtime for YouTube)
+- [Deno](https://deno.com) or Node.js (yt-dlp needs a JavaScript runtime for YouTube; archiver uses whichever is installed)
 - ffmpeg
 - An Anthropic API key
 - An ElevenLabs API key
@@ -115,7 +115,7 @@ The note's path is printed on stdout, so `archiver URL | pbcopy` or `open "$(arc
 
 | Stage | What it does | Cached as |
 |---|---|---|
-| preflight | Checks the vault folder, both API keys, `deno` and `ffmpeg` before any paid call. | none |
+| preflight | Checks the vault folder, both API keys, a JavaScript runtime and `ffmpeg` before any paid call. | none |
 | fetch | yt-dlp reads title, channel, date, duration, description and chapters, and downloads the audio. Live streams and videos over `max_duration_min` are refused. | `meta.json`, audio file |
 | transcribe | Sends the audio to Scribe v3, with speaker labels. | `stt_raw.json` |
 | segment | Splits the words into 5 to 15 second segments in plain code. Free. | none |
