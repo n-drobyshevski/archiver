@@ -9,11 +9,14 @@ from pydantic import BaseModel
 from archiver.cache import fingerprint
 from archiver.config import Settings
 from archiver.llm import LLM, load_prompt
-from archiver.models import Chapter, Outline, Paragraph, Topic, VideoMeta
+from archiver.models import Chapter, Concept, Outline, Paragraph, Topic, VideoMeta
 
 MIN_TOPIC_SECONDS = 60.0
 MIN_TOPIC_PARAGRAPHS = 2
 MAX_TAGS = 5
+MAX_CONCEPTS = 15
+MAX_CONCEPT_NAMES = 5
+RELATION_CHARS = 200
 MIN_CHAPTERS = 3
 CHAPTER_MEAN_MIN_S = 2 * 60
 CHAPTER_MEAN_MAX_S = 20 * 60
@@ -52,11 +55,17 @@ class TopicDraft(BaseModel):
     summary: str
 
 
+class ConceptDraft(BaseModel):
+    names: list[str]
+    relation: str
+
+
 class OutlineDraft(BaseModel):
     tldr: str
     key_points: list[str]
     topics: list[TopicDraft]
     tags: list[str]
+    concepts: list[ConceptDraft]
 
 
 class TopicSummary(BaseModel):
@@ -69,6 +78,7 @@ class ChapterOutlineDraft(BaseModel):
     key_points: list[str]
     topic_summaries: list[TopicSummary]
     tags: list[str]
+    concepts: list[ConceptDraft]
 
 
 def prompt_fingerprint() -> str:
@@ -209,6 +219,24 @@ def chapter_topics(chapters: list[Chapter], paragraphs: list[Paragraph]) -> list
     return topics
 
 
+def clean_concepts(drafts: list[ConceptDraft]) -> list[Concept]:
+    """Trim the model's concepts to plain single-line names; nothing here can form a link."""
+    out: list[Concept] = []
+    for draft in drafts:
+        names: list[str] = []
+        for name in draft.names:
+            name = _SPACES.sub(" ", re.sub(r"[\[\]|#^]", " ", name)).strip()
+            if name and name not in names:
+                names.append(name)
+        if not names:
+            continue
+        relation = _SPACES.sub(" ", draft.relation.replace("[[", "").replace("]]", "")).strip()
+        out.append(Concept(names=names[:MAX_CONCEPT_NAMES], relation=relation[:RELATION_CHARS]))
+        if len(out) == MAX_CONCEPTS:
+            break
+    return out
+
+
 def fallback_outline(paragraphs: list[Paragraph], meta: VideoMeta) -> Outline:
     """An outline without any model call: chapters if usable, else one topic."""
     if paragraphs and chapters_usable(meta):
@@ -320,6 +348,7 @@ async def build_outline(
         key_points=[k.strip() for k in draft.key_points if k.strip()],
         topics=topics,
         tags=clean_tags(draft.tags),
+        concepts=clean_concepts(draft.concepts),
     )
 
 

@@ -99,11 +99,28 @@ class Topic(BaseModel):
     summary: str = ""
 
 
+class Concept(BaseModel):
+    """Something the video is substantially about: a person, work, theory or term.
+    `names` are ways it may be written as a note title (dictionary form, other language, short)."""
+
+    names: list[str]
+    relation: str = ""  # one line: how the video bears on it
+
+
+class NoteLink(BaseModel):
+    """A link to a note that already exists in the vault."""
+
+    target: str  # what goes inside [[...]]: the title, or the path when the title is shared
+    title: str
+    relation: str = ""
+
+
 class Outline(BaseModel):
     tldr: str = ""
     key_points: list[str] = Field(default_factory=list)
     topics: list[Topic] = Field(default_factory=list)
     tags: list[str] = Field(default_factory=list)
+    concepts: list[Concept] = Field(default_factory=list)
 
 
 class Usage(BaseModel):

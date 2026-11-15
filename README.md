@@ -115,6 +115,10 @@ concurrency = 4                      # cleanup requests in flight at once
 outline_model = "claude-opus-5-5"
 outline_effort = "high"
 
+link_notes = true                    # link the note to notes you already have (see below)
+link_exclude = ["Anchor"]            # top-level folders whose notes are never link targets
+link_max = 12
+
 refusal_fallbacks = true             # let the API retry elsewhere when a request is declined
 ```
 
@@ -146,9 +150,19 @@ The note's path is printed on stdout, so `archiver URL | pbcopy` or `open "$(arc
 | segment | Splits the words into 5 to 15 second segments in plain code. Free. | none |
 | clean | Sonnet cleans the text in chunks of about 1,350 words, using a shared glossary of names and terms. A check compares each result with the source; a chunk that lost or invented too much is retried smaller, then kept raw. | per chunk, `clean/` |
 | outline | Opus writes the TL;DR, key points and topics. Chapters set by the creator are used as topic boundaries when they cover the video. | `outline.json` |
+| link | Matches the people, works and ideas the video is about against the titles, aliases and tags of your existing notes, in plain code on your machine. Free. | none |
 | render + write | Builds the Markdown and writes it into the vault through a temp file, so Obsidian Sync never sees a half-written note. | none |
 
 The cache lives in `~/.cache/archiver/<video_id>/`. Each entry records what produced it, so running a video again costs nothing unless a prompt or model changed, and then only the affected stages are redone. A run that failed halfway resumes where it stopped. If you have edited a note since the tool wrote it, the tool refuses to replace it unless you pass `--overwrite`.
+
+## Links and tags into your existing notes
+
+A new note is joined to what is already in the vault:
+
+- **Related notes.** The outline step also lists the people, organisations, works, theories and terms the video is substantially about, each with a few ways its name may be written. archiver then looks for notes in your vault whose title or alias is one of those names (case, `ё`/`е` and punctuation are ignored) and adds a `Related notes` section with a `[[link]]` to each and one line on how the video bears on it. Obsidian shows the backlink on the other note by itself.
+- **Tags.** Tags your vault already uses are preferred, spelled the way you spell them (frontmatter `tags` and inline `#tags` are both read). A new tag is used only when none of yours fits.
+
+Nothing from your vault is sent anywhere for this: Claude names the concepts without seeing the vault, and the matching is plain code on your machine. It only links to notes that exist, never edits them, skips dot-folders such as `.obsidian`, and never links into the folders in `link_exclude`. Matching is by name, not by meaning, so a note called "Requisite variety" will not be found for "закон Эшби" unless one of them is an alias of the other; adding aliases to your notes is the way to improve it. Set `link_notes = false` to turn it off.
 
 ## Cost
 

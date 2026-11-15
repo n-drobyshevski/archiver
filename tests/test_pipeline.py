@@ -14,7 +14,13 @@ from archiver.clean import CleanedChunk, CleanedParagraph
 from archiver.config import Settings
 from archiver.errors import FetchBlocked, LlmRefused, NoteExists, PreflightError, SttFailed
 from archiver.models import Chapter, Glossary, RawTranscript, Usage, VideoMeta, Word
-from archiver.outline import ChapterOutlineDraft, OutlineDraft, TopicDraft, TopicSummary
+from archiver.outline import (
+    ChapterOutlineDraft,
+    ConceptDraft,
+    OutlineDraft,
+    TopicDraft,
+    TopicSummary,
+)
 
 VIDEO_ID = "abcdefghijk"
 SENTENCE = "сегодня мы говорим про компиляторы и про то как они превращают текст программы в дерево"
@@ -70,6 +76,7 @@ class FakeLLM:
         self.calls: list[type] = []
         self.usage: dict[str, Usage] = {}
         self.refuse_outline = refuse_outline
+        self.concepts: list[ConceptDraft] = []
 
     def cost_usd(self) -> float | None:
         return 0.0
@@ -92,6 +99,7 @@ class FakeLLM:
                 key_points=["Компилятор строит дерево."],
                 topic_summaries=[TopicSummary(number=k, summary=f"раздел {k}") for k in numbers],
                 tags=["Compilers", "#parsing"],
+                concepts=self.concepts,
             )
         assert output_format is OutlineDraft
         return OutlineDraft(
@@ -102,6 +110,7 @@ class FakeLLM:
                 TopicDraft(title="Дальше", first_paragraph=max(1, n // 2), summary="продолжение"),
             ],
             tags=["Compilers", "#parsing"],
+            concepts=self.concepts,
         )
 
     @staticmethod
@@ -278,3 +287,50 @@ def test_preflight_lists_everything_missing(tmp_path, monkeypatch):
     message = str(exc.value)
     for expected in ("Vault folder", "ELEVENLABS_API_KEY", "Anthropic", "JavaScript", "ffmpeg"):
         assert expected in message
+
+
+async def test_note_links_to_existing_vault_notes_and_reuses_tags(settings):
+    vault = settings.vault
+    (vault / "People").mkdir()
+    (vault / "People" / "Ник Ланд.md").write_text(
+        "---\naliases:\n  - Nick Land\ntags:\n  - философия\n---\nтекст\n", encoding="utf-8"
+    )
+    (vault / "Компилятор.md").write_text("Про компиляторы. #Compilers и #языки\n", encoding="utf-8")
+    (vault / "Anchor" / "Journal").mkdir(parents=True)
+    (vault / "Anchor" / "Journal" / "Дерево.md").write_text("личное\n", encoding="utf-8")
+
+    words = make_words(30)
+    meta = make_meta(duration=words[-1].end)
+    llm = FakeLLM()
+    llm.concepts = [
+        ConceptDraft(names=["Компиляторы", "Компилятор", "Compiler"], relation="Главная тема."),
+        ConceptDraft(names=["Nick Land"], relation="Упомянут как пример."),
+        ConceptDraft(names=["Дерево"], relation="Не должно связаться: личная папка."),
+        ConceptDraft(names=["Философия"], relation="Нет такой заметки, но есть такой тег."),
+    ]
+    result = await pipeline.run(meta.url, settings, deps=make_deps(meta, FakeTranscriber(words), llm))
+    front, body = split_note(result.path.read_text(encoding="utf-8"))
+
+    assert "## Связанные заметки" in body
+    assert "- [[Компилятор]]: Главная тема." in body
+    assert "- [[Ник Ланд]]: Упомянут как пример." in body
+    assert "Дерево" not in body.split("## Содержание")[0]
+    # Existing tags only, spelled as the vault spells them; the model's unknown "parsing" is dropped.
+    assert front["tags"] == ["video", "youtube", "философия", "Compilers"]
+
+    # A second run links the same way and never links the note to itself.
+    again = await pipeline.run(meta.url, settings, deps=make_deps(meta, FakeTranscriber(words), llm))
+    assert again.path.read_text(encoding="utf-8").count("[[") == 2
+
+
+async def test_linking_can_be_switched_off(settings):
+    (settings.vault / "Компилятор.md").write_text("x\n", encoding="utf-8")
+    words = make_words(30)
+    meta = make_meta(duration=words[-1].end)
+    llm = FakeLLM()
+    llm.concepts = [ConceptDraft(names=["Компилятор"], relation="Тема.")]
+    off = settings.model_copy(update={"link_notes": False})
+    result = await pipeline.run(meta.url, off, deps=make_deps(meta, FakeTranscriber(words), llm))
+    front, body = split_note(result.path.read_text(encoding="utf-8"))
+    assert "[[" not in body
+    assert front["tags"] == ["video", "youtube", "compilers", "parsing"]

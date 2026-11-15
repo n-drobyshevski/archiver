@@ -73,6 +73,11 @@ class Settings(BaseSettings):
     outline_model: str = "claude-opus-5-5"
     outline_effort: Effort = "high"
 
+    # Links and tags that join a new note to the notes already in the vault (matched locally)
+    link_notes: bool = True
+    link_exclude: list[str] = Field(default_factory=lambda: ["Anchor"])  # top-level folders
+    link_max: int = 12
+
     # Let the API retry on another model when a request is declined
     refusal_fallbacks: bool = True
 

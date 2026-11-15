@@ -10,12 +10,12 @@ from datetime import date
 from pathlib import Path
 from typing import Callable
 
-from archiver import clean, fetch, outline, render, segment, vault
+from archiver import clean, fetch, links, outline, render, segment, vault
 from archiver.cache import Cache, fingerprint
 from archiver.config import Settings
 from archiver.errors import FetchBlocked, LlmRefused, LlmTruncated, PreflightError, SttFailed
 from archiver.llm import LLM
-from archiver.models import CleanResult, Outline, RawTranscript, Usage, VideoMeta
+from archiver.models import CleanResult, NoteLink, Outline, RawTranscript, Usage, VideoMeta
 from archiver.stt.base import Transcriber, VideoSource
 
 Progress = Callable[[str, str], None]  # (stage, message)
@@ -167,6 +167,21 @@ async def run(
     else:
         say("outline", "using cached outline")
 
+    # link into the existing notes (local and free, so never cached: the vault changes)
+    note_links: list[NoteLink] = []
+    tags: list[str] | None = None
+    if settings.link_notes and settings.vault is not None and result.concepts:
+        index = await asyncio.to_thread(
+            links.build_index,
+            settings.vault,
+            exclude=settings.link_exclude,
+            skip_video_id=meta.video_id,
+        )
+        note_links, tags = links.resolve(
+            result.concepts, result.tags, index, max_links=settings.link_max
+        )
+        say("link", f"{len(note_links)} related notes found in the vault")
+
     # render + write
     content = render.render_note(
         meta,
@@ -175,6 +190,8 @@ async def run(
         language=language,
         warnings=warnings,
         created=date.today(),
+        links=note_links,
+        tags=tags,
     )
     path = vault.write_note(
         notes_dir,

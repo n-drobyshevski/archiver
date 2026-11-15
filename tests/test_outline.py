@@ -7,7 +7,13 @@ from archiver import outline
 from archiver.config import Settings
 from archiver.errors import LlmRefused
 from archiver.models import Chapter, Paragraph, Topic, VideoMeta
-from archiver.outline import ChapterOutlineDraft, OutlineDraft, TopicDraft, TopicSummary
+from archiver.outline import (
+    ChapterOutlineDraft,
+    ConceptDraft,
+    OutlineDraft,
+    TopicDraft,
+    TopicSummary,
+)
 
 
 class FakeLLM:
@@ -166,6 +172,10 @@ async def test_chapter_mode_keeps_creator_titles():
                 TopicSummary(number=1, summary="Начало."),
             ],
             tags=["#Финансы"],
+            concepts=[
+                ConceptDraft(names=[" Уильям  Росс Эшби ", "[[Эшби]]", ""], relation="Опора [[доклада]].\nДа."),
+                ConceptDraft(names=["", "  "], relation="пусто"),
+            ],
         )
 
     llm = FakeLLM(handler)
@@ -179,6 +189,9 @@ async def test_chapter_mode_keeps_creator_titles():
     assert result.tldr == "Кратко."
     assert result.key_points == ["Первое"]
     assert result.tags == ["финансы"]
+    assert [(c.names, c.relation) for c in result.concepts] == [
+        (["Уильям Росс Эшби", "Эшби"], "Опора доклада. Да.")
+    ]
     call = llm.calls[0]
     assert call["model"] == SETTINGS.outline_model and call["effort"] == SETTINGS.outline_effort
     assert "Russian" in call["user"]
@@ -199,6 +212,7 @@ async def test_free_mode_repairs_model_topics_and_gives_target():
                 TopicDraft(title="Bogus", first_paragraph=400, summary=""),
             ],
             tags=["AI Safety", "#ml"],
+            concepts=[],
         )
 
     llm = FakeLLM(handler)

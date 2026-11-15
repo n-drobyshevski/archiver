@@ -5,10 +5,11 @@ from __future__ import annotations
 import re
 import unicodedata
 from datetime import date
+from typing import Sequence
 
 import yaml
 
-from archiver.models import Outline, Paragraph, Topic, VideoMeta
+from archiver.models import NoteLink, Outline, Paragraph, Topic, VideoMeta
 
 MAX_FILENAME_BYTES = 180
 LINK_EVERY_SECONDS = 150
@@ -16,8 +17,18 @@ _FORBIDDEN_IN_FILENAME = set('[]#^|\\/:*"<>?')
 _ORDERED_LIST = re.compile(r"^(\d+)([.)])(?=\s|$)")
 
 _HEADINGS = {
-    "ru": {"key_points": "Ключевые мысли", "contents": "Содержание", "speaker": "Спикер"},
-    "en": {"key_points": "Key points", "contents": "Contents", "speaker": "Speaker"},
+    "ru": {
+        "key_points": "Ключевые мысли",
+        "related": "Связанные заметки",
+        "contents": "Содержание",
+        "speaker": "Спикер",
+    },
+    "en": {
+        "key_points": "Key points",
+        "related": "Related notes",
+        "contents": "Contents",
+        "speaker": "Speaker",
+    },
 }
 
 
@@ -102,7 +113,7 @@ class _IndentedDumper(yaml.SafeDumper):
         return super().increase_indent(flow, False)
 
 
-def _frontmatter(meta: VideoMeta, outline: Outline, language: str, created: date) -> str:
+def _frontmatter(meta: VideoMeta, tags: Sequence[str], language: str, created: date) -> str:
     data: dict[str, object] = {"title": _one_line(meta.title), "url": _watch_url(meta)}
     data["video_id"] = meta.video_id
     if meta.channel:
@@ -111,7 +122,7 @@ def _frontmatter(meta: VideoMeta, outline: Outline, language: str, created: date
         data["published"] = meta.upload_date
     data["duration_min"] = round(meta.duration / 60)
     data["language"] = language
-    data["tags"] = _unique(["video", "youtube", *outline.tags])
+    data["tags"] = _unique(["video", "youtube", *tags])
     data["created"] = created
     body = yaml.dump(
         data,
@@ -204,6 +215,12 @@ def _contents(
     return "\n".join(lines)
 
 
+def _related_line(link: NoteLink) -> str:
+    target = f"[[{link.target}]]" if link.target == link.title else f"[[{link.target}|{link.title}]]"
+    relation = _one_line(link.relation).replace("[[", "").replace("]]", "")
+    return f"- {target}: {relation}" if relation else f"- {target}"
+
+
 def render_note(
     meta: VideoMeta,
     paragraphs: list[Paragraph],
@@ -212,14 +229,17 @@ def render_note(
     language: str,
     warnings: list[str],
     created: date,
+    links: Sequence[NoteLink] = (),
+    tags: Sequence[str] | None = None,
 ) -> str:
+    """`links` are existing vault notes to point at; `tags` replaces the outline's own tags."""
     names = _HEADINGS.get(language, _HEADINGS["en"])
     with_hours = meta.duration >= 3600
     labels = _speaker_labels(paragraphs, language)
     ranges = _topic_ranges(outline.topics, len(paragraphs))
 
     blocks: list[str] = [
-        _frontmatter(meta, outline, language, created)
+        _frontmatter(meta, outline.tags if tags is None else tags, language, created)
         + f"\n![]({_watch_url(meta)})"
     ]
     if warnings:
@@ -230,6 +250,8 @@ def render_note(
     points = [_one_line(p) for p in outline.key_points if p.strip()]
     if points:
         blocks.append(f"## {names['key_points']}\n" + "\n".join(f"- {p}" for p in points))
+    if links:
+        blocks.append(f"## {names['related']}\n" + "\n".join(_related_line(link) for link in links))
     contents = _contents(meta, ranges, paragraphs, with_hours, names["contents"])
     if contents:
         blocks.append(contents)
