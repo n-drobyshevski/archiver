@@ -98,3 +98,33 @@ def test_cyrillic_filename_and_utf8(tmp_path: Path) -> None:
     path = write(tmp_path, "Привет\nмир\n", name="2026-10-01 Привет (vid1).md")
     assert path.read_bytes() == "Привет\nмир\n".encode("utf-8")
     write(tmp_path, "ещё\n", name="2026-10-01 Привет (vid1).md")
+
+
+def test_note_in_subfolder_is_found_and_rewritten_in_place(tmp_path: Path) -> None:
+    first = write(tmp_path)
+    sub = first.parent / "Series"
+    sub.mkdir()
+    moved = sub / first.name
+    first.rename(moved)
+    again = write(tmp_path, "v2\n")
+    assert again == moved and moved.read_text() == "v2\n"
+    assert not (first.parent / first.name).exists()
+
+
+def test_renamed_title_in_subfolder_stays_in_subfolder(tmp_path: Path) -> None:
+    first = write(tmp_path, name="Old (vid1).md")
+    sub = first.parent / "Series"
+    sub.mkdir()
+    old = first.rename(sub / first.name)
+    new = write(tmp_path, "v2\n", name="New (vid1).md")
+    assert new.parent == sub and not old.exists() and new.exists()
+
+
+def test_edited_note_in_subfolder_refuses(tmp_path: Path) -> None:
+    first = write(tmp_path)
+    sub = first.parent / "Series"
+    sub.mkdir()
+    moved = first.rename(sub / first.name)
+    moved.write_text("edited")
+    with pytest.raises(NoteExists):
+        write(tmp_path, "v2\n")

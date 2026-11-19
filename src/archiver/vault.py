@@ -21,7 +21,8 @@ def _existing_notes(notes_dir: Path, video_id: str) -> list[Path]:
     if not notes_dir.is_dir():
         return []
     pattern = f"*({glob.escape(video_id)}).md"
-    return sorted(p for p in notes_dir.glob(pattern) if p.is_file() and not p.name.startswith("."))
+    # rglob: notes may have been filed into subfolders of the notes folder.
+    return sorted(p for p in notes_dir.rglob(pattern) if p.is_file() and not p.name.startswith("."))
 
 
 def _stored_hash(state_dir: Path) -> str | None:
@@ -54,20 +55,23 @@ def write_note(
     state_dir: Path,
 ) -> Path:
     check_writable(notes_dir, video_id, state_dir=state_dir, overwrite=overwrite)
-    notes_dir.mkdir(parents=True, exist_ok=True)
-    target = notes_dir / filename
+    # Keep an existing note where the user filed it; only new notes go in the top folder.
+    existing = _existing_notes(notes_dir, video_id)
+    target_dir = existing[0].parent if existing else notes_dir
+    target_dir.mkdir(parents=True, exist_ok=True)
+    target = target_dir / filename
     data = content.encode("utf-8")  # bytes, so no newline translation on any platform
 
     # A dot-prefixed temp file in the same folder: same filesystem for an atomic replace,
     # and Obsidian ignores dotfiles so Sync never sees a half-written note.
-    fd, tmp_name = tempfile.mkstemp(dir=notes_dir, prefix=".archiver-", suffix=".tmp")
+    fd, tmp_name = tempfile.mkstemp(dir=target_dir, prefix=".archiver-", suffix=".tmp")
     tmp = Path(tmp_name)
     try:
         with os.fdopen(fd, "wb") as handle:
             handle.write(data)
             handle.flush()
             os.fsync(handle.fileno())
-        stale = [p for p in _existing_notes(notes_dir, video_id) if p.name != filename]
+        stale = [p for p in existing if p != target]
         os.replace(tmp, target)
     except BaseException:
         tmp.unlink(missing_ok=True)
